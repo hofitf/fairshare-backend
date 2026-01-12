@@ -1,7 +1,7 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from sqlmodel import Session, select
 from database import create_db_and_tables, get_session
-from models import User, Group
+from models import User, Group, Expense
 
 from contextlib import asynccontextmanager
 
@@ -34,6 +34,7 @@ def create_group(group: Group, session: Session = Depends(get_session)):
     session.refresh(group)
     return group
 
+
 @app.get("/groups/")
 def read_groups(session: Session = Depends(get_session)):
     statement = select(Group)
@@ -42,4 +43,19 @@ def read_groups(session: Session = Depends(get_session)):
     return groups
 
 
+@app.post("/expenses/")
+def create_expense(expense: Expense, session: Session = Depends(get_session)):
+    # validate existence:
+    user = session.get(User, expense.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not Found!")
+    group = session.get(Group, expense.group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found!")
+
+    # saving the data
+    session.add(expense)
+    session.commit()
+    session.refresh(expense)
+    return expense
 
